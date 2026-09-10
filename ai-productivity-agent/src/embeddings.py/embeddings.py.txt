@@ -1,0 +1,27 @@
+from sentence_transformers import SentenceTransformer
+
+
+EMBEDDING_MODEL_NAME = all-MiniLM-L6-v2
+
+embedding_model = SentenceTransformer(
+    EMBEDDING_MODEL_NAME
+)
+
+
+def create_embeddings(chunks)
+    texts = [chunk[text] for chunk in chunks]
+
+    embeddings = embedding_model.encode(
+        texts,
+        show_progress_bar=True
+    )
+
+    return embeddings
+
+
+def create_query_embedding(question)
+    query_embedding = embedding_model.encode(
+        [question]
+    )[0].tolist()
+
+    return query_embedding

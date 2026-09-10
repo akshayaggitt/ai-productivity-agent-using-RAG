@@ -1,0 +1,246 @@
+from .ingestion import load_pdfs
+from .chunking import create_chunks
+from .embeddings import create_embeddings
+from .vector_store import create_collection
+from .retrieval import retrieve
+from .generation import load_model, generate_response
+
+
+def main():
+
+    print("=" * 60)
+    print("AI PERSONAL PRODUCTIVITY ASSISTANT - RAG")
+    print("=" * 60)
+
+    # -------------------------
+    # 1. Load PDFs
+    # -------------------------
+
+    documents = load_pdfs(
+        "data/raw"
+    )
+
+    print(
+        "✅ Text extraction complete"
+    )
+
+    print(
+        "Pages extracted:",
+        len(documents)
+    )
+
+    # -------------------------
+    # 2. Create chunks
+    # -------------------------
+
+    chunks = create_chunks(
+        documents
+    )
+
+    print(
+        "✅ Chunking complete"
+    )
+
+    print(
+        "Total chunks:",
+        len(chunks)
+    )
+
+    # -------------------------
+    # 3. Create embeddings
+    # -------------------------
+
+    embeddings = create_embeddings(
+        chunks
+    )
+
+    print(
+        "✅ Embeddings created"
+    )
+
+    print(
+        "Number of vectors:",
+        len(embeddings)
+    )
+
+    print(
+        "Vector dimensions:",
+        len(embeddings[0])
+    )
+
+    # -------------------------
+    # 4. Create vector database
+    # -------------------------
+
+    collection = create_collection(
+        chunks,
+        embeddings
+    )
+
+    print(
+        "✅ Vector database ready"
+    )
+
+    print(
+        "Stored chunks:",
+        collection.count()
+    )
+
+    # -------------------------
+    # 5. Load local LLM
+    # -------------------------
+
+    tokenizer, model, device = (
+        load_model()
+    )
+
+    # -------------------------
+    # 6. Ask question
+    # -------------------------
+
+    question = input(
+        "\nAsk a day plan query : "
+    )
+
+    # -------------------------
+    # 7. Retrieve relevant chunks
+    # -------------------------
+
+    retrieved_chunks = retrieve(
+        collection,
+        question,
+        k=min(3, len(chunks))
+    )
+
+    print(
+        "\n✅ Similarity search complete"
+    )
+
+    for i, chunk in enumerate(
+        retrieved_chunks,
+        start=1
+    ):
+
+        print("=" * 60)
+
+        print(
+            "RANK:",
+            i
+        )
+
+        print(
+            "DISTANCE:",
+            round(
+                chunk["distance"],
+                4
+            )
+        )
+
+        print(
+            "SOURCE:",
+            chunk["source"]
+        )
+
+        print(
+            "PAGE:",
+            chunk["page"]
+        )
+
+        print(
+            "TEXT:",
+            chunk["text"][:700]
+        )
+
+    # -------------------------
+    # 8. Generate answer
+    # -------------------------
+
+    answer = generate_response(
+        tokenizer,
+        model,
+        device,
+        question,
+        retrieved_chunks
+    )
+
+    print("\nANSWER")
+    print("=" * 60)
+    print(answer)
+
+    # -------------------------
+    # 9. Show sources
+    # -------------------------
+
+    print(
+        "\nSOURCES USED"
+    )
+
+    print("-" * 50)
+
+    seen = set()
+
+    for chunk in retrieved_chunks:
+
+        citation = (
+            chunk["source"],
+            chunk["page"]
+        )
+
+        if citation not in seen:
+
+            print(
+                f"• {chunk['source']} "
+                f"— Page {chunk['page']}"
+            )
+
+            seen.add(citation)
+
+    # -------------------------
+    # 10. Knowledge base info
+    # -------------------------
+
+    print(
+        "\nDocuments in the knowledge base:"
+    )
+
+    for source in sorted(
+        set(
+            chunk["source"]
+            for chunk in chunks
+        )
+    ):
+
+        print(
+            " -",
+            source
+        )
+
+    print(
+        "\nTotal searchable chunks:",
+        collection.count()
+    )
+
+    # -------------------------
+    # 11. Retrieval evaluation
+    # -------------------------
+
+    print(
+        "\nRetrieved evidence for evaluation:"
+    )
+
+    for rank, chunk in enumerate(
+        retrieved_chunks,
+        start=1
+    ):
+
+        print(
+            f"{rank}. "
+            f"{chunk['source']} | "
+            f"Page {chunk['page']} | "
+            f"distance="
+            f"{chunk['distance']:.4f}"
+        )
+
+
+if __name__ == "__main__":
+    main()

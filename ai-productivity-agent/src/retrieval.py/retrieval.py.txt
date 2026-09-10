@@ -1,0 +1,35 @@
+from .embeddings import create_query_embedding
+from .vector_store import search
+
+
+def retrieve(collection, question, k=3):
+
+    query_embedding = create_query_embedding(
+        question
+    )
+
+    results = search(
+        collection,
+        query_embedding,
+        k
+    )
+
+    retrieved_chunks = []
+
+    for i, text in enumerate(
+        results["documents"][0]
+    ):
+
+        metadata = results["metadatas"][0][i]
+        distance = results["distances"][0][i]
+
+        item = {
+            "text": text,
+            "source": metadata["source"],
+            "page": metadata["page"],
+            "distance": distance
+        }
+
+        retrieved_chunks.append(item)
+
+    return retrieved_chunks

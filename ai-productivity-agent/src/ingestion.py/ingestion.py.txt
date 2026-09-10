@@ -1,0 +1,28 @@
+from pathlib import Path
+from pypdf import PdfReader
+
+
+def load_pdfs(data_dir="data/raw"):
+    documents = []
+
+    pdf_files = sorted(Path(data_dir).glob("*.pdf"))
+
+    if not pdf_files:
+        raise FileNotFoundError(
+            f"No PDF files found in {data_dir}."
+        )
+
+    for pdf_path in pdf_files:
+        reader = PdfReader(str(pdf_path))
+
+        for page_number, page in enumerate(reader.pages, start=1):
+            text = page.extract_text()
+
+            if text and text.strip():
+                documents.append({
+                    "text": text.strip(),
+                    "source": pdf_path.name,
+                    "page": page_number
+                })
+
+    return documents

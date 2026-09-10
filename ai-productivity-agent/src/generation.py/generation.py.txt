@@ -1,0 +1,123 @@
+import torch
+
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM
+)
+
+
+MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
+
+
+def load_model():
+
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "cpu"
+    )
+
+    print(
+        "Loading local LLM on:",
+        device
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME
+    )
+
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        torch_dtype=(
+            torch.float16
+            if device == "cuda"
+            else torch.float32
+        )
+    )
+
+    model = model.to(device)
+
+    model.eval()
+
+    print("✅ Local LLM loaded")
+
+    return tokenizer, model, device
+
+
+def generate_response(
+    tokenizer,
+    model,
+    device,
+    question,
+    retrieved_chunks
+):
+
+    context = "\n\n".join(
+        f"SOURCE: {chunk['source']}\n"
+        f"PAGE: {chunk['page']}\n"
+        f"CONTENT: {chunk['text']}"
+        for chunk in retrieved_chunks
+    )
+
+    prompt = (
+        "You are a productivity agent.\n\n"
+        "Answer the question using ONLY "
+        "the productivity policy context below. "
+        "Do not invent policies.\n\n"
+        "QUESTION:\n"
+        + question
+        + "\n\n"
+        "productivity POLICY CONTEXT:\n"
+        + context
+    )
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a productivity ai agent. "
+                "Use only the supplied productivity "
+                "context. Do not invent policies."
+            )
+        },
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ]
+
+    formatted_prompt = (
+        tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+    )
+
+    inputs = tokenizer(
+        formatted_prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=4096
+    ).to(device)
+
+    with torch.no_grad():
+
+        output = model.generate(
+            **inputs,
+            max_new_tokens=250,
+            do_sample=False
+        )
+
+    new_tokens = output[
+        0
+    ][
+        inputs["input_ids"].shape[1]:
+    ]
+
+    answer = tokenizer.decode(
+        new_tokens,
+        skip_special_tokens=True
+    )
+
+    return answer
